@@ -1573,7 +1573,7 @@ impl SearchByIndex {
                     &facets_by_index,
                     &index,
                     &rtxn,
-                    candidates,
+                    candidates | pinned_candidates,
                     super::super::Route::MultiSearch,
                 )
             })
