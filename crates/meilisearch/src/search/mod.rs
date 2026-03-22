@@ -1731,6 +1731,7 @@ pub fn perform_search(
             documents_ids,
             matching_words,
             candidates,
+            surviving_pins,
             document_scores,
             degraded,
             used_negative_operator,
@@ -1817,7 +1818,8 @@ pub fn perform_search(
         hydrate_documents(&mut documents, &foreign_keys, index_scheduler)?;
     }
 
-    let number_of_hits = min(candidates.len() as usize, max_total_hits);
+    let number_of_hits =
+        min(candidates.len() as usize + surviving_pins.len() as usize, max_total_hits);
     let hits_info = if is_finite_pagination {
         let hits_per_page = hits_per_page.unwrap_or_else(DEFAULT_SEARCH_LIMIT);
         // If hit_per_page is 0, then pages can't be computed and so we respond 0.
@@ -2494,6 +2496,7 @@ pub fn perform_similar(
         documents_ids,
         matching_words: _,
         candidates,
+        surviving_pins: _,
         document_scores,
         degraded: _,
         used_negative_operator: _,
