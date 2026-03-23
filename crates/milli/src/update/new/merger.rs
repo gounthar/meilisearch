@@ -107,6 +107,12 @@ where
         merge_caches_sorted(frozen, |key, DelAddRoaringBitmap { del, add }| {
             let current = database.get(&rtxn, key)?;
             match merge_cbo_bitmaps(current, del, add)? {
+                // we must know newly created or updated bitmaps
+                // change output -> {
+                //   additions: BTreeMap<Word, Set<Fids>>,
+                //   modifications: BTreeMap<Word, Set<Fids>>,
+                //   deletions: BTreeMap<Word, Set<Fids>>,
+                // }
                 Operation::Write(bitmap) => docids_sender.write(key, &bitmap),
                 Operation::Delete => docids_sender.delete(key),
                 Operation::Ignore => Ok(()),

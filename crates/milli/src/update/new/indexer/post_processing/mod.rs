@@ -47,6 +47,7 @@ where
     compute_facet_search_database(index, wtxn, global_fields_ids_map, indexing_context.progress)?;
     indexing_context.progress.update_progress(IndexingStep::PostProcessingWords);
     if let Some(prefix_delta) = compute_word_fst(index, wtxn, indexing_context.progress)? {
+        // if the prefix delta incoming from outside is empty, do nothing
         compute_prefix_database(
             index,
             wtxn,
@@ -95,6 +96,7 @@ fn compute_word_fst(
     let prefix_settings = index.prefix_settings(&rtxn)?;
     word_fst_builder.with_prefix_settings(prefix_settings);
 
+    // Remove this from the FST and use the PrefixData diff extracted from the merger
     let previous_words = index.word_docids.iter(&rtxn)?.remap_data_type::<Bytes>();
     let current_words = index.word_docids.iter(wtxn)?.remap_data_type::<Bytes>();
     for eob in merge_join_by(previous_words, current_words, |lhs, rhs| match (lhs, rhs) {

@@ -188,12 +188,6 @@ impl PrefixFstBuilder {
             }
         }
 
-        Ok(PrefixData {
-            prefixes_fst_mmap: prefix_fst_mmap,
-            prefix_delta: PrefixDelta {
-                modified: self.modified_prefixes,
-                deleted: deleted_prefixes,
-            },
-        })
+        Ok(PrefixData { prefixes_fst_mmap: prefix_fst_mmap })
     }
 }

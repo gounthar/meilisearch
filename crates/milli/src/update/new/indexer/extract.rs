@@ -157,6 +157,7 @@ where
 
             merge_and_send_docids(
                 word_fid_docids,
+                // touch this and not word docids
                 index.word_fid_docids.remap_types(),
                 index,
                 extractor_sender.docids::<WordFidDocids>(),

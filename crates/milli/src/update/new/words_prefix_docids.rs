@@ -67,6 +67,7 @@ impl<'i> WordPrefixDocids<'i> {
                 ));
 
                 let mut buffer = Vec::new();
+                // Adapt this to only read the ordered key
                 for (prefix_index, prefix) in prefix_to_compute.iter().enumerate() {
                     // Is prefix for another thread?
                     if prefix_index % thread_count != thread_id {
