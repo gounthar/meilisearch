@@ -13,22 +13,19 @@ use crate::heed_codec::StrBEU16Codec;
 use crate::update::GrenadParameters;
 use crate::{CboRoaringBitmapCodec, Index, Prefix, Result};
 
-struct WordPrefixDocids<'i> {
-    index: &'i Index,
+struct WordPrefixDocids {
     database: Database<Bytes, CboRoaringBitmapCodec>,
     prefix_database: Database<Bytes, CboRoaringBitmapCodec>,
     max_memory_by_thread: Option<usize>,
 }
 
-impl<'i> WordPrefixDocids<'i> {
+impl WordPrefixDocids {
     fn new(
-        index: &'i Index,
         database: Database<Bytes, CboRoaringBitmapCodec>,
         prefix_database: Database<Bytes, CboRoaringBitmapCodec>,
         grenad_parameters: &GrenadParameters,
-    ) -> WordPrefixDocids<'i> {
+    ) -> WordPrefixDocids {
         WordPrefixDocids {
-            index,
             database,
             prefix_database,
             max_memory_by_thread: grenad_parameters.max_memory_by_thread(),
@@ -45,14 +42,14 @@ impl<'i> WordPrefixDocids<'i> {
         self.recompute_modified_prefixes_no_frozen(wtxn, prefix_to_compute)
     }
 
-    #[tracing::instrument(level = "trace", skip_all, target = "indexing::prefix")]
+    #[tracing::instrument(level = "trace", skip_all, target = "indexing::post_processing::prefix")]
     fn recompute_modified_prefixes_no_frozen(
         &self,
         wtxn: &mut RwTxn,
         prefix_to_compute: &BTreeSet<Prefix>,
     ) -> Result<()> {
         let thread_count = rayon::current_num_threads();
-        let rtxns = iter::repeat_with(|| self.index.env.nested_read_txn(wtxn))
+        let rtxns = iter::repeat_with(|| wtxn.nested_read_txn())
             .take(thread_count)
             .collect::<heed::Result<Vec<_>>>()?;
 
@@ -118,22 +115,19 @@ struct PrefixEntry<'a> {
     serialized_length: usize,
 }
 
-struct WordPrefixIntegerDocids<'i> {
-    index: &'i Index,
+struct WordPrefixIntegerDocids {
     database: Database<Bytes, CboRoaringBitmapCodec>,
     prefix_database: Database<Bytes, CboRoaringBitmapCodec>,
     max_memory_by_thread: Option<usize>,
 }
 
-impl<'i> WordPrefixIntegerDocids<'i> {
+impl WordPrefixIntegerDocids {
     fn new(
-        index: &'i Index,
         database: Database<Bytes, CboRoaringBitmapCodec>,
         prefix_database: Database<Bytes, CboRoaringBitmapCodec>,
         grenad_parameters: &'_ GrenadParameters,
-    ) -> WordPrefixIntegerDocids<'i> {
+    ) -> WordPrefixIntegerDocids {
         WordPrefixIntegerDocids {
-            index,
             database,
             prefix_database,
             max_memory_by_thread: grenad_parameters.max_memory_by_thread(),
@@ -155,14 +149,14 @@ impl<'i> WordPrefixIntegerDocids<'i> {
     /// ...but without aggregating the prefixes mmap pointers into a static HashMap
     /// beforehand and rather use an experimental LMDB feature to read the subset
     /// of prefixes in parallel from the uncommitted transaction.
-    #[tracing::instrument(level = "trace", skip_all, target = "indexing::prefix")]
+    #[tracing::instrument(level = "trace", skip_all, target = "indexing::post_processing::prefix")]
     fn recompute_modified_prefixes_no_frozen(
         &self,
         wtxn: &mut RwTxn,
         prefixes: &BTreeSet<Prefix>,
     ) -> Result<()> {
         let thread_count = rayon::current_num_threads();
-        let rtxns = iter::repeat_with(|| self.index.env.nested_read_txn(wtxn))
+        let rtxns = iter::repeat_with(|| wtxn.nested_read_txn())
             .take(thread_count)
             .collect::<heed::Result<Vec<_>>>()?;
 
@@ -278,7 +272,7 @@ struct PrefixIntegerEntry<'a> {
     serialized_length: Option<usize>,
 }
 
-#[tracing::instrument(level = "trace", skip_all, target = "indexing::prefix")]
+#[tracing::instrument(level = "trace", skip_all, target = "indexing::post_processing::prefix")]
 fn delete_prefixes(
     wtxn: &mut RwTxn,
     prefix_database: &Database<Bytes, CboRoaringBitmapCodec>,
@@ -296,7 +290,7 @@ fn delete_prefixes(
     Ok(())
 }
 
-#[tracing::instrument(level = "trace", skip_all, target = "indexing::prefix")]
+#[tracing::instrument(level = "trace", skip_all, target = "indexing::post_processing::prefix")]
 pub fn compute_word_prefix_docids(
     wtxn: &mut RwTxn,
     index: &Index,
@@ -305,7 +299,6 @@ pub fn compute_word_prefix_docids(
     grenad_parameters: &GrenadParameters,
 ) -> Result<()> {
     WordPrefixDocids::new(
-        index,
         index.word_docids.remap_key_type(),
         index.word_prefix_docids.remap_key_type(),
         grenad_parameters,
@@ -313,7 +306,7 @@ pub fn compute_word_prefix_docids(
     .execute(wtxn, prefix_to_compute, prefix_to_delete)
 }
 
-#[tracing::instrument(level = "trace", skip_all, target = "indexing::prefix")]
+#[tracing::instrument(level = "trace", skip_all, target = "indexing::post_processing::prefix")]
 pub fn compute_exact_word_prefix_docids(
     wtxn: &mut RwTxn,
     index: &Index,
@@ -322,7 +315,6 @@ pub fn compute_exact_word_prefix_docids(
     grenad_parameters: &GrenadParameters,
 ) -> Result<()> {
     WordPrefixDocids::new(
-        index,
         index.exact_word_docids.remap_key_type(),
         index.exact_word_prefix_docids.remap_key_type(),
         grenad_parameters,
@@ -330,7 +322,7 @@ pub fn compute_exact_word_prefix_docids(
     .execute(wtxn, prefix_to_compute, prefix_to_delete)
 }
 
-#[tracing::instrument(level = "trace", skip_all, target = "indexing::prefix")]
+#[tracing::instrument(level = "trace", skip_all, target = "indexing::post_processing::prefix")]
 pub fn compute_word_prefix_fid_docids(
     wtxn: &mut RwTxn,
     index: &Index,
@@ -339,7 +331,6 @@ pub fn compute_word_prefix_fid_docids(
     grenad_parameters: &GrenadParameters,
 ) -> Result<()> {
     WordPrefixIntegerDocids::new(
-        index,
         index.word_fid_docids.remap_key_type(),
         index.word_prefix_fid_docids.remap_key_type(),
         grenad_parameters,
@@ -347,7 +338,7 @@ pub fn compute_word_prefix_fid_docids(
     .execute(wtxn, prefix_to_compute, prefix_to_delete)
 }
 
-#[tracing::instrument(level = "trace", skip_all, target = "indexing::prefix")]
+#[tracing::instrument(level = "trace", skip_all, target = "indexing::post_processing::prefix")]
 pub fn compute_word_prefix_position_docids(
     wtxn: &mut RwTxn,
     index: &Index,
@@ -356,7 +347,6 @@ pub fn compute_word_prefix_position_docids(
     grenad_parameters: &GrenadParameters,
 ) -> Result<()> {
     WordPrefixIntegerDocids::new(
-        index,
         index.word_position_docids.remap_key_type(),
         index.word_prefix_position_docids.remap_key_type(),
         grenad_parameters,
